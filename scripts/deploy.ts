@@ -9,11 +9,13 @@ async function main() {
   const AssetContractShared = await ethers.getContractFactory(
     "AssetContractShared"
   );
+
   const assetContractShared = await AssetContractShared.deploy(
     "Arverse Collections",
     "ARV",
     ethers.constants.AddressZero,
-    ""
+    "",
+    { value: ethers.utils.parseEther("1") }
   );
 
   const tx = await assetContractShared.deployed();

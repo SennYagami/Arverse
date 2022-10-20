@@ -24,13 +24,13 @@ const config: HardhatUserConfig = {
       accounts: [process.env.PRIVATE_KEY as any],
     },
   },
-  gasReporter: {
-    outputFile: "gas-report.txt",
-    enabled: true,
-    currency: "USD",
-    noColors: true,
-    coinmarketcap: process.env.COIN_MARKETCAP_API_KEY || "",
-    token: "ETH",
-  },
+//   gasReporter: {
+//     outputFile: "gas-report.txt",
+//     enabled: true,
+//     currency: "USD",
+//     noColors: true,
+//     coinmarketcap: process.env.COIN_MARKETCAP_API_KEY || "",
+//     token: "ETH",
+//   },
 };
 export default config;

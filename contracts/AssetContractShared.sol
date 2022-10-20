@@ -82,8 +82,8 @@ contract AssetContractShared is AssetContract, ReentrancyGuard {
         uint256 _tokenId,
         uint256 _quantity,
         bytes memory _data
-    ) public nonReentrant creatorOnly(_tokenId) {
-        _mint(_to, _tokenId, _quantity, uri);
+    ) public override nonReentrant creatorOnly(_tokenId) {
+        _mint(_to, _tokenId, _quantity, _data);
     }
 
     function batchMint(

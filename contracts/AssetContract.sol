@@ -223,20 +223,11 @@ contract AssetContract is ERC1155Tradable {
 
     function _mint(
         address _to,
-        uint256 _mainCollectionId,
-        uint256 _subCollectionId,
         uint256 _tokenId,
         uint256 _quantity,
         bytes memory _data
     ) internal override {
-        super._mint(
-            _to,
-            _mainCollectionId,
-            _subCollectionId,
-            _tokenId,
-            _quantity,
-            _data
-        );
+        super._mint(_to, _tokenId, _quantity, _data);
         if (_data.length > 1) {
             setURI(_tokenId, string(_data));
         }
@@ -274,9 +265,17 @@ contract AssetContract is ERC1155Tradable {
         bytes memory _data
     ) internal virtual override {
         super._batchMint(_to, _ids, _quantities, _data);
-        if (_data.length > 1) {
-            for (uint256 i = 0; i < _ids.length; i++) {
-                setURI(_ids[i], string(_data));
+
+        bytes[] memory _dataLs = parseData2DataLs(_data);
+        require(_dataLs.length == _ids.length, "Wrong array length");
+        for (uint256 i = 0; i < _ids.length; i++) {
+            (
+                uint256 _mainCollectionId,
+                uint256 _subCollectionId,
+                bytes memory _uri
+            ) = parseData2PathUri(_dataLs[i]);
+            if (_uri.length > 1) {
+                setURI(_ids[i], string(_uri));
             }
         }
     }

@@ -55,6 +55,9 @@ contract ERC1155Tradable is
 
     mapping(uint256 => uint256) private _supply;
 
+    // mainCollection => ether value
+    mapping(uint256 => uint256) private _value;
+
     // tokenId to [mainCollectionId,subCollectionId]
     mapping(uint256 => uint256[2]) private _idPath;
 
@@ -293,20 +296,7 @@ contract ERC1155Tradable is
         uint256 _quantity,
         bytes memory _data
     ) public virtual onlyOwnerOrProxy {
-        (
-            uint256 _mainCollectionId,
-            uint256 _subCollectionId,
-            bytes memory _uri
-        ) = parseData2PathUri(_data);
-
-        _mint(
-            _to,
-            _mainCollectionId,
-            _subCollectionId,
-            _tokenId,
-            _quantity,
-            _uri
-        );
+        _mint(_to, _tokenId, _quantity, _data);
     }
 
     /**
@@ -318,20 +308,11 @@ contract ERC1155Tradable is
      */
     function batchMint(
         address _to,
-        uint256[] memory _mainCollectionIds,
-        uint256[] memory _subCollectionIds,
         uint256[] memory _ids,
         uint256[] memory _quantities,
         bytes memory _data
     ) public virtual onlyOwnerOrProxy {
-        _batchMint(
-            _to,
-            _mainCollectionIds,
-            _subCollectionIds,
-            _ids,
-            _quantities,
-            _data
-        );
+        _batchMint(_to, _ids, _quantities, _data);
     }
 
     /**
@@ -375,13 +356,17 @@ contract ERC1155Tradable is
     // and to set _supply
     function _mint(
         address _to,
-        uint256 _mainCollectionId,
-        uint256 _subCollectionId,
         uint256 _id,
         uint256 _amount,
         bytes memory _data
-    ) internal virtual whenNotPaused {
+    ) internal virtual override whenNotPaused {
         address operator = _msgSender();
+
+        (
+            uint256 _mainCollectionId,
+            uint256 _subCollectionId,
+            bytes memory _uri
+        ) = parseData2PathUri(_data);
 
         _beforeTokenTransfer(
             operator,
@@ -450,8 +435,10 @@ contract ERC1155Tradable is
         for (uint256 i = 0; i < nMint; i++) {
             (
                 uint256 mainCollectionId,
-                uint256 subCollectionId
-            ) = parseData2DataLs(_dataLs[i]);
+                uint256 subCollectionId,
+                bytes memory _uri
+            ) = parseData2PathUri(_dataLs[i]);
+
             uint256 tokenId = _tokenIds[i];
             uint256 amount = _amounts[i];
 
@@ -464,6 +451,7 @@ contract ERC1155Tradable is
             );
             // Update storage balance
             balances[mainCollectionId][subCollectionId][tokenId][_to] += amount;
+
             _supply[tokenId] += amount;
         }
 
@@ -704,7 +692,7 @@ contract ERC1155Tradable is
     function parseData2DataLs(bytes memory data)
         public
         pure
-        returns (bytes[] dataLs)
+        returns (bytes[] memory dataLs)
     {
         (dataLs) = abi.decode(data, (bytes[]));
     }
