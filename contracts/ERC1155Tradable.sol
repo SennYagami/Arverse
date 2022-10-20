@@ -377,14 +377,20 @@ contract ERC1155Tradable is
             _data
         );
 
-        // _beforeMint(_id, _amount);
+        _beforeMint(_id, _amount);
+
+        address origin = _origin(_id);
+        require(
+            _origin(_mainCollectionId) == origin &&
+                _origin(_subCollectionId) == origin,
+            "Wrong path"
+        );
 
         // Add _amount
         balances[_mainCollectionId][_subCollectionId][_id][_to] += _amount;
         _supply[_id] += _amount;
 
         // Origin of token will be the _from parameter
-        address origin = _origin(_id);
 
         // Emit event
         emit TransferSingle(operator, origin, _to, _id, _amount);
@@ -414,9 +420,6 @@ contract ERC1155Tradable is
 
         bytes[] memory _dataLs = parseData2DataLs(_data);
 
-        // Number of mints to execute
-        uint256 nMint = _tokenIds.length;
-
         // Origin of tokens will be the _from parameter
         address origin = _origin(_tokenIds[0]);
 
@@ -432,27 +435,30 @@ contract ERC1155Tradable is
         );
 
         // Executing all minting
-        for (uint256 i = 0; i < nMint; i++) {
+        for (uint256 i = 0; i < _tokenIds.length; i++) {
             (
-                uint256 mainCollectionId,
-                uint256 subCollectionId,
+                uint256 _mainCollectionId,
+                uint256 _subCollectionId,
                 bytes memory _uri
             ) = parseData2PathUri(_dataLs[i]);
 
-            uint256 tokenId = _tokenIds[i];
+            uint256 _tokenId = _tokenIds[i];
             uint256 amount = _amounts[i];
 
-            _beforeMint(tokenId, amount);
+            _beforeMint(_tokenId, amount);
             require(
-                _origin(tokenId) == origin &&
-                    _origin(mainCollectionId) == origin &&
-                    _origin(subCollectionId) == origin,
+                _origin(_tokenId) == origin &&
+                    _origin(_mainCollectionId) == origin &&
+                    _origin(_subCollectionId) == origin,
                 "ERC1155Tradable#batchMint: MULTIPLE_ORIGINS_NOT_ALLOWED"
             );
-            // Update storage balance
-            balances[mainCollectionId][subCollectionId][tokenId][_to] += amount;
 
-            _supply[tokenId] += amount;
+            // Update storage balance
+            balances[_mainCollectionId][_subCollectionId][_tokenId][
+                _to
+            ] += amount;
+
+            _supply[_tokenId] += amount;
         }
 
         // Emit batch mint event

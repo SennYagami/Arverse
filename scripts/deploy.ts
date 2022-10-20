@@ -15,12 +15,12 @@ async function main() {
     "ARV",
     ethers.constants.AddressZero,
     "",
-    { value: ethers.utils.parseEther("1") }
+    
   );
 
   const tx = await assetContractShared.deployed();
 
-  console.log(assetContractShared.address);
+  console.log('assetContractShared.address',assetContractShared.address);
   //   console.log(tx);
 }
 
