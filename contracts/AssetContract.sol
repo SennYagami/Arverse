@@ -223,22 +223,23 @@ contract AssetContract is ERC1155Tradable {
 
     function _mint(
         address _to,
+        uint256 _mainCollectionId,
+        uint256 _subCollectionId,
         uint256 _tokenId,
         uint256 _quantity,
         bytes memory _data
     ) internal override {
-        super._mint(_to, _tokenId, _quantity, _data);
-        (
-            uint256 _mainCollectionId,
-            uint256 _subCollectionId,
-            bytes memory _uri
-        ) = parseData2PathUri(_data);
+        super._mint(
+            _to,
+            _mainCollectionId,
+            _subCollectionId,
+            _tokenId,
+            _quantity,
+            _data
+        );
 
-        _mainCollectionId;
-        _subCollectionId;
-
-        if (_uri.length > 1) {
-            setURI(_tokenId, string(_uri));
+        if (_data.length > 1) {
+            setURI(_tokenId, string(_data));
         }
     }
 
@@ -269,26 +270,25 @@ contract AssetContract is ERC1155Tradable {
 
     function _batchMint(
         address _to,
-        uint256[] memory _ids,
+        uint256[] memory _mainCollectionIdLs,
+        uint256[] memory _subCollectionIdLs,
+        uint256[] memory _tokenIds,
         uint256[] memory _quantities,
-        bytes memory _data
+        bytes[] memory _dataLs
     ) internal virtual override {
-        super._batchMint(_to, _ids, _quantities, _data);
+        super._batchMint(
+            _to,
+            _mainCollectionIdLs,
+            _subCollectionIdLs,
+            _tokenIds,
+            _quantities,
+            _dataLs
+        );
 
-        bytes[] memory _dataLs = parseData2DataLs(_data);
-        require(_dataLs.length == _ids.length, "Wrong array length");
-        for (uint256 i = 0; i < _ids.length; i++) {
-            (
-                uint256 _mainCollectionId,
-                uint256 _subCollectionId,
-                bytes memory _uri
-            ) = parseData2PathUri(_dataLs[i]);
-
-            _mainCollectionId;
-            _subCollectionId;
-
-            if (_uri.length > 1) {
-                setURI(_ids[i], string(_uri));
+        for (uint256 i = 0; i < _tokenIds.length; i++) {
+            bytes memory _data = _dataLs[i];
+            if (_data.length > 1) {
+                setURI(_tokenIds[i], string(_data));
             }
         }
     }

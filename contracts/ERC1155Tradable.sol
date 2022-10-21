@@ -45,20 +45,24 @@ contract ERC1155Tradable is
         * creator: hex address of the creator of the token. 160 bits
         * index: 96 bits
         
-        mainCollectionId and subCollectionId are a concatenation of:
+        mainCollectionId are a concatenation of:
         * creator: hex address of the creator of the token. 160 bits
-        * index of asset type. 2bits. 00:mainCollection, 01:subCollection, 02:tokenId. 
-        * index of asset category. 94 bits.
+        * index. 96 bits.
+
+        subCollectionId are a concatenation of:
+        * creator: hex address of the creator of the token. 160 bits
+        * index of work type. 0:series work, like manga or novel; 1:other token. 1 bit.
+        * index. 95 bits.
     
         tokenId is a concatenation of:
         * creator: hex address of the creator of the token. 160 bits
-        * index of asset type. 00:mainCollection; 01:subCollection; 02:tokenId. 2 bits. 
-        * index of token type. 0:series work, like manga or novel; 1:other token. 1 bit. 
-        * if token type is 0, then:
-            * index of episode: 28 bits
-            * index of page: 25 bits.
+        * mainCollection index: 10 bits
+        * subCollection index: 10 bits
+        * if its subCollection work type is 0, then:
+            * index of episode: 18 bits
+            * index of page: 18 bits.
         * else 
-            * index of category: 53 bits
+            * index of category: 36 bits
         * supply: Supply cap for this token, up to 2^40 - 1 (1 trillion).  40 bits
     */
     mapping(uint256 => mapping(uint256 => mapping(uint256 => mapping(address => uint256))))
@@ -307,23 +311,55 @@ contract ERC1155Tradable is
         uint256 _quantity,
         bytes memory _data
     ) public virtual onlyOwnerOrProxy {
-        _mint(_to, _tokenId, _quantity, _data);
+        (
+            uint256 _mainCollectionId,
+            uint256 _subCollectionId,
+            bytes memory _uri
+        ) = parseData2PathUri(_data);
+
+        _mint(
+            _to,
+            _mainCollectionId,
+            _subCollectionId,
+            _tokenId,
+            _quantity,
+            _uri
+        );
     }
 
     /**
      * @dev Mint tokens for each id in _ids
      * @param _to          The address to mint tokens to
-     * @param _ids         Array of ids to mint
+     * @param _tokenIds         Array of ids to mint
      * @param _quantities  Array of amounts of tokens to mint per id
      * @param _data        Data to pass if receiver is contract
      */
     function batchMint(
         address _to,
-        uint256[] memory _ids,
+        uint256[] memory _tokenIds,
         uint256[] memory _quantities,
         bytes memory _data
     ) public virtual onlyOwnerOrProxy {
-        _batchMint(_to, _ids, _quantities, _data);
+        (
+            uint256[] memory _mainCollectionIdLs,
+            uint256[] memory _subCollectionIdLs,
+            bytes[] memory _dataLs
+        ) = parseData2DataLs(_data);
+        require(
+            _mainCollectionIdLs.length == _subCollectionIdLs.length &&
+                _subCollectionIdLs.length == _dataLs.length &&
+                _subCollectionIdLs.length == _quantities.length,
+            "Wrong array length"
+        );
+
+        _batchMint(
+            _to,
+            _mainCollectionIdLs,
+            _subCollectionIdLs,
+            _tokenIds,
+            _quantities,
+            _dataLs
+        );
     }
 
     /**
@@ -367,19 +403,13 @@ contract ERC1155Tradable is
     // and to set _supply
     function _mint(
         address _to,
+        uint256 _mainCollectionId,
+        uint256 _subCollectionId,
         uint256 _id,
         uint256 _amount,
         bytes memory _data
-    ) internal virtual override whenNotPaused {
+    ) internal virtual whenNotPaused {
         address operator = _msgSender();
-
-        (
-            uint256 _mainCollectionId,
-            uint256 _subCollectionId,
-            bytes memory _uri
-        ) = parseData2PathUri(_data);
-
-        _uri;
 
         _beforeTokenTransfer(
             operator,
@@ -422,16 +452,13 @@ contract ERC1155Tradable is
     // Overrides ERC1155MintBurn to change the batch birth events to creator transfers, and to set _supply
     function _batchMint(
         address _to,
+        uint256[] memory _mainCollectionIdLs,
+        uint256[] memory _subCollectionIdLs,
         uint256[] memory _tokenIds,
         uint256[] memory _amounts,
-        bytes memory _data
+        bytes[] memory _dataLs
     ) internal virtual whenNotPaused {
-        require(
-            _tokenIds.length == _amounts.length,
-            "ERC1155Tradable#batchMint: INVALID_ARRAYS_LENGTH"
-        );
-
-        bytes[] memory _dataLs = parseData2DataLs(_data);
+        _dataLs;
 
         // Origin of tokens will be the _from parameter
         address origin = _origin(_tokenIds[0]);
@@ -444,19 +471,13 @@ contract ERC1155Tradable is
             _to,
             _tokenIds,
             _amounts,
-            _data
+            bytes("")
         );
 
         // Executing all minting
         for (uint256 i = 0; i < _tokenIds.length; i++) {
-            (
-                uint256 _mainCollectionId,
-                uint256 _subCollectionId,
-                bytes memory _uri
-            ) = parseData2PathUri(_dataLs[i]);
-
-            _uri;
-
+            uint256 _mainCollectionId = _mainCollectionIdLs[i];
+            uint256 _subCollectionId = _subCollectionIdLs[i];
             uint256 _tokenId = _tokenIds[i];
             uint256 amount = _amounts[i];
 
@@ -486,7 +507,7 @@ contract ERC1155Tradable is
             _to,
             _tokenIds,
             _amounts,
-            _data
+            bytes("")
         );
     }
 
@@ -713,8 +734,15 @@ contract ERC1155Tradable is
     function parseData2DataLs(bytes memory data)
         public
         pure
-        returns (bytes[] memory dataLs)
+        returns (
+            uint256[] memory mainCollectionIdLs,
+            uint256[] memory subCollectionIdLs,
+            bytes[] memory dataLs
+        )
     {
-        (dataLs) = abi.decode(data, (bytes[]));
+        (mainCollectionIdLs, subCollectionIdLs, dataLs) = abi.decode(
+            data,
+            (uint256[], uint256[], bytes[])
+        );
     }
 }

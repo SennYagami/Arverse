@@ -20,6 +20,8 @@ async function main() {
 
   const tx = await assetContractShared.deployed();
 
+  
+
   console.log('assetContractShared.address',assetContractShared.address);
   //   console.log(tx);
 }

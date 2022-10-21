@@ -109,17 +109,37 @@ contract AssetContractShared is AssetContract, ReentrancyGuard {
 
     function batchMint(
         address _to,
-        uint256[] memory _ids,
+        uint256[] memory _tokenIds,
         uint256[] memory _quantities,
         bytes memory _data
     ) public override nonReentrant {
-        for (uint256 i = 0; i < _ids.length; i++) {
+        for (uint256 i = 0; i < _tokenIds.length; i++) {
             require(
-                _isCreatorOrProxy(_ids[i], _msgSender()),
+                _isCreatorOrProxy(_tokenIds[i], _msgSender()),
                 "AssetContractShared#_batchMint: ONLY_CREATOR_ALLOWED"
             );
         }
-        _batchMint(_to, _ids, _quantities, _data);
+
+        (
+            uint256[] memory _mainCollectionIdLs,
+            uint256[] memory _subCollectionIdLs,
+            bytes[] memory _dataLs
+        ) = parseData2DataLs(_data);
+        require(
+            _mainCollectionIdLs.length == _subCollectionIdLs.length &&
+                _subCollectionIdLs.length == _dataLs.length &&
+                _subCollectionIdLs.length == _quantities.length,
+            "Wrong array length"
+        );
+
+        _batchMint(
+            _to,
+            _mainCollectionIdLs,
+            _subCollectionIdLs,
+            _tokenIds,
+            _quantities,
+            _dataLs
+        );
     }
 
     /////////////////////////////////
