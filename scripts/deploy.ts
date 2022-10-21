@@ -14,15 +14,12 @@ async function main() {
     "Arverse Collections",
     "ARV",
     ethers.constants.AddressZero,
-    "",
-    
+    ""
   );
 
   const tx = await assetContractShared.deployed();
 
-  
-
-  console.log('assetContractShared.address',assetContractShared.address);
+  console.log("assetContractShared.address", assetContractShared.address);
   //   console.log(tx);
 }
 
