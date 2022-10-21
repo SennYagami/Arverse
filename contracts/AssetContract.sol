@@ -228,8 +228,17 @@ contract AssetContract is ERC1155Tradable {
         bytes memory _data
     ) internal override {
         super._mint(_to, _tokenId, _quantity, _data);
-        if (_data.length > 1) {
-            setURI(_tokenId, string(_data));
+        (
+            uint256 _mainCollectionId,
+            uint256 _subCollectionId,
+            bytes memory _uri
+        ) = parseData2PathUri(_data);
+
+        _mainCollectionId;
+        _subCollectionId;
+
+        if (_uri.length > 1) {
+            setURI(_tokenId, string(_uri));
         }
     }
 
@@ -274,6 +283,10 @@ contract AssetContract is ERC1155Tradable {
                 uint256 _subCollectionId,
                 bytes memory _uri
             ) = parseData2PathUri(_dataLs[i]);
+
+            _mainCollectionId;
+            _subCollectionId;
+
             if (_uri.length > 1) {
                 setURI(_ids[i], string(_uri));
             }

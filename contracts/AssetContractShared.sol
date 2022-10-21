@@ -18,9 +18,30 @@ contract AssetContractShared is AssetContract, ReentrancyGuard {
         address owner;
     }
 
+    // creator address => access index =>  address => permission's end timestamp
+    mapping(address => mapping(uint8 => mapping(address => uint256)))
+        private accessPermission;
+
+    // creator address => access index => [price,timeSpan]
+    mapping(address => mapping(uint8 => uint256[2]))
+        private accessPriceDuration;
+
     using TokenIdentifiers for uint256;
 
     event CreatorChanged(uint256 indexed _id, address indexed _creator);
+
+    event AccessPermissionBought(
+        address indexed buyer,
+        address indexed creator,
+        uint8 accessTypeIndex,
+        uint256 endTimeStamp
+    );
+    event AccessPriceDuationUpdate(
+        address indexed creator,
+        uint8 accessTypeIndex,
+        uint256 price,
+        uint256 timeSpan
+    );
 
     mapping(uint256 => address) internal _creatorOverride;
 
@@ -210,5 +231,44 @@ contract AssetContractShared is AssetContract, ReentrancyGuard {
             return true;
         }
         return super._isProxyForUser(_user, _address);
+    }
+
+    function setAccessPriceDuration(
+        address creator_,
+        uint8 accessIndex,
+        uint256 price,
+        uint256 timeSpan
+    ) public {
+        require(
+            creator_ == msgSender() || _isProxyForUser(creator_, msgSender()),
+            "Only the creator or proxy can set access price "
+        );
+
+        accessPriceDuration[creator_][accessIndex] = [price, timeSpan];
+
+        emit AccessPriceDuationUpdate(creator_, accessIndex, price, timeSpan);
+    }
+
+    function payForAccess(address creator_, uint8 accessIndex) public payable {
+        uint256 price = accessPriceDuration[creator_][accessIndex][0];
+        require(msg.value >= price, "Insufficient fund");
+
+        uint256 permissionEndTimeStamp = accessPriceDuration[creator_][
+            accessIndex
+        ][1] + block.timestamp;
+
+        accessPermission[creator_][accessIndex][
+            msg.sender
+        ] = permissionEndTimeStamp;
+
+        bool sent = payable(msg.sender).send(price - msg.value);
+        require(sent, "Failed to send remain Ether back");
+
+        emit AccessPermissionBought(
+            msg.sender,
+            creator_,
+            accessIndex,
+            permissionEndTimeStamp
+        );
     }
 }

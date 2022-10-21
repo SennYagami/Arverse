@@ -45,9 +45,20 @@ contract ERC1155Tradable is
         * creator: hex address of the creator of the token. 160 bits
         * index: 96 bits
         
-        tokenId are a concatenation of:
+        mainCollectionId and subCollectionId are a concatenation of:
         * creator: hex address of the creator of the token. 160 bits
-        * index of asset category. 56 bits.
+        * index of asset type. 2bits. 00:mainCollection, 01:subCollection, 02:tokenId. 
+        * index of asset category. 94 bits.
+    
+        tokenId is a concatenation of:
+        * creator: hex address of the creator of the token. 160 bits
+        * index of asset type. 00:mainCollection; 01:subCollection; 02:tokenId. 2 bits. 
+        * index of token type. 0:series work, like manga or novel; 1:other token. 1 bit. 
+        * if token type is 0, then:
+            * index of episode: 28 bits
+            * index of page: 25 bits.
+        * else 
+            * index of category: 53 bits
         * supply: Supply cap for this token, up to 2^40 - 1 (1 trillion).  40 bits
     */
     mapping(uint256 => mapping(uint256 => mapping(uint256 => mapping(address => uint256))))
@@ -368,6 +379,8 @@ contract ERC1155Tradable is
             bytes memory _uri
         ) = parseData2PathUri(_data);
 
+        _uri;
+
         _beforeTokenTransfer(
             operator,
             address(0),
@@ -441,6 +454,8 @@ contract ERC1155Tradable is
                 uint256 _subCollectionId,
                 bytes memory _uri
             ) = parseData2PathUri(_dataLs[i]);
+
+            _uri;
 
             uint256 _tokenId = _tokenIds[i];
             uint256 amount = _amounts[i];
