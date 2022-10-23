@@ -21,8 +21,6 @@ contract AssetContract is ERC1155Tradable {
     // Mapping for whether a token URI is set permanently
     mapping(uint256 => bool) private _isPermanentURI;
 
-    error InsufficientBalance();
-
     modifier onlyTokenAmountOwned(
         address _from,
         uint256 _id,
@@ -32,26 +30,6 @@ contract AssetContract is ERC1155Tradable {
             _ownsTokenAmount(_from, _id, _quantity),
             "AssetContract#onlyTokenAmountOwned: ONLY_TOKEN_AMOUNT_OWNED_ALLOWED"
         );
-        _;
-    }
-
-    modifier onlyCreatorLazyMint(
-        address from,
-        uint256 tokenId,
-        uint256 amount
-    ) {
-        // get balance of spender - this will return current balance
-        // plus remaining supply if spender is the creator
-        // (or this contract itself - which should never be possible,
-        // as Seaport will only spend from accts that have signed a valid order)
-
-        // sea store front token
-        uint256 fromBalance = balanceOf(from, tokenId);
-
-        // if insufficient balance, revert
-        if (fromBalance < amount) {
-            revert InsufficientBalance();
-        }
         _;
     }
 
@@ -155,7 +133,7 @@ contract AssetContract is ERC1155Tradable {
         uint256 _id,
         uint256 _amount,
         bytes memory _data
-    ) public override onlyCreatorLazyMint(_from, _id, _amount) {
+    ) public override {
         uint256 mintedBalance = super.balanceOf(_from, _id);
         if (mintedBalance < _amount) {
             // Only mint what _from doesn't already have
@@ -179,10 +157,8 @@ contract AssetContract is ERC1155Tradable {
             _ids.length == _amounts.length,
             "AssetContract#safeBatchTransferFrom: INVALID_ARRAYS_LENGTH"
         );
-
-        bytes[] memory _dataLs = abi.decode(_data, (bytes[]));
         for (uint256 i = 0; i < _ids.length; i++) {
-            safeTransferFrom(_from, _to, _ids[i], _amounts[i], _dataLs[i]);
+            safeTransferFrom(_from, _to, _ids[i], _amounts[i], _data);
         }
     }
 
@@ -223,24 +199,14 @@ contract AssetContract is ERC1155Tradable {
 
     function _mint(
         address _to,
-        uint256 _mainCollectionId,
-        uint256 _subCollectionId,
-        uint256 _tokenId,
+        uint256 _id,
         uint256 _quantity,
         bytes memory _data
     ) internal override {
-        super._mint(
-            _to,
-            _mainCollectionId,
-            _subCollectionId,
-            _tokenId,
-            _quantity,
-            _data
-        );
-
         if (_data.length > 1) {
-            setURI(_tokenId, string(_data));
+            setURI(_id, string(_data));
         }
+        super._mint(_to, _id, _quantity, _data);
     }
 
     function _isCreatorOrProxy(uint256, address _address)
@@ -270,27 +236,23 @@ contract AssetContract is ERC1155Tradable {
 
     function _batchMint(
         address _to,
-        uint256[] memory _mainCollectionIdLs,
-        uint256[] memory _subCollectionIdLs,
-        uint256[] memory _tokenIds,
+        uint256[] memory _ids,
         uint256[] memory _quantities,
-        bytes[] memory _dataLs
+        bytes memory _data
     ) internal virtual override {
-        super._batchMint(
-            _to,
-            _mainCollectionIdLs,
-            _subCollectionIdLs,
-            _tokenIds,
-            _quantities,
-            _dataLs
-        );
-
-        for (uint256 i = 0; i < _tokenIds.length; i++) {
-            bytes memory _data = _dataLs[i];
-            if (_data.length > 1) {
-                setURI(_tokenIds[i], string(_data));
+        if (_data.length > 1) {
+            bytes[] memory _dataLs = abi.decode(_data, (bytes[]));
+            require(
+                _dataLs.length == _ids.length,
+                "length mismatch in AssetContract _batchMint"
+            );
+            for (uint256 i = 0; i < _ids.length; i++) {
+                if (_dataLs[i].length > 1) {
+                    setURI(_ids[i], string(_dataLs[i]));
+                }
             }
         }
+        super._batchMint(_to, _ids, _quantities, _data);
     }
 
     function _setURI(uint256 _id, string memory _uri) internal {

@@ -37,44 +37,10 @@ contract ERC1155Tradable is
     // Contract symbol
     string public symbol;
 
-    /*
-        DESIGN NOTES:
-        mapping from mainCollectionId => subCollectionId => tokenId => ownerAddress => balance
-
-        mainCollectionId subCollectionId are a concatenation of:
-        * creator: hex address of the creator of the token. 160 bits
-        * index: 96 bits
-        
-        mainCollectionId are a concatenation of:
-        * creator: hex address of the creator of the token. 160 bits
-        * index. 96 bits.
-
-        subCollectionId are a concatenation of:
-        * creator: hex address of the creator of the token. 160 bits
-        * index of work type. 0:series work, like manga or novel; 1:other token. 1 bit.
-        * index. 95 bits.
-    
-        tokenId is a concatenation of:
-        * creator: hex address of the creator of the token. 160 bits
-        * mainCollection index: 10 bits
-        * subCollection index: 10 bits
-        * if its subCollection work type is 0, then:
-            * index of episode: 18 bits
-            * index of page: 18 bits.
-        * else 
-            * index of category: 36 bits
-        * supply: Supply cap for this token, up to 2^40 - 1 (1 trillion).  40 bits
-    */
-    mapping(uint256 => mapping(uint256 => mapping(uint256 => mapping(address => uint256))))
-        private balances;
+    // Mapping from token ID to account balances
+    mapping(uint256 => mapping(address => uint256)) private balances;
 
     mapping(uint256 => uint256) private _supply;
-
-    // mainCollection => ether value
-    mapping(uint256 => uint256) private _value;
-
-    // tokenId to [mainCollectionId,subCollectionId]
-    mapping(uint256 => uint256[2]) private _idPath;
 
     constructor(
         string memory _name,
@@ -128,7 +94,7 @@ contract ERC1155Tradable is
      *
      * - `account` cannot be the zero address.
      */
-    function balanceOf(address account, uint256 tokenId)
+    function balanceOf(address account, uint256 id)
         public
         view
         virtual
@@ -139,10 +105,7 @@ contract ERC1155Tradable is
             account != address(0),
             "ERC1155: balance query for the zero address"
         );
-
-        uint256[2] memory idPath = _idPath[tokenId];
-
-        return balances[idPath[0]][idPath[1]][tokenId][account];
+        return balances[id][account];
     }
 
     /**
@@ -152,19 +115,22 @@ contract ERC1155Tradable is
      *
      * - `accounts` and `ids` must have the same length.
      */
-    function balanceOfBatch(
-        address[] memory accounts,
-        uint256[] memory tokenIds
-    ) public view virtual override returns (uint256[] memory) {
+    function balanceOfBatch(address[] memory accounts, uint256[] memory ids)
+        public
+        view
+        virtual
+        override
+        returns (uint256[] memory)
+    {
         require(
-            accounts.length == tokenIds.length,
-            "ERC1155: accounts and mainCollectionIds and tokenIds length mismatch"
+            accounts.length == ids.length,
+            "ERC1155: accounts and ids length mismatch"
         );
 
         uint256[] memory batchBalances = new uint256[](accounts.length);
 
         for (uint256 i = 0; i < accounts.length; ++i) {
-            batchBalances[i] = balanceOf(accounts[i], tokenIds[i]);
+            batchBalances[i] = balanceOf(accounts[i], ids[i]);
         }
 
         return batchBalances;
@@ -202,7 +168,7 @@ contract ERC1155Tradable is
     function safeTransferFrom(
         address from,
         address to,
-        uint256 tokenId,
+        uint256 id,
         uint256 amount,
         bytes memory data
     ) public virtual override whenNotPaused onlyApproved(from) {
@@ -210,35 +176,26 @@ contract ERC1155Tradable is
 
         address operator = _msgSender();
 
-        // _beforeTokenTransfer(
-        //     operator,
-        //     from,
-        //     to,
-        //     asSingletonArray(tokenId),
-        //     asSingletonArray(amount),
-        //     data
-        // );
+        _beforeTokenTransfer(
+            operator,
+            from,
+            to,
+            asSingletonArray(id),
+            asSingletonArray(amount),
+            data
+        );
 
-        uint256[2] memory idPath = _idPath[tokenId];
-        uint256 fromBalance = balances[idPath[0]][idPath[1]][tokenId][from];
-
+        uint256 fromBalance = balances[id][from];
         require(
             fromBalance >= amount,
             "ERC1155: insufficient balance for transfer"
         );
-        balances[idPath[0]][idPath[1]][tokenId][from] = fromBalance - amount;
-        balances[idPath[0]][idPath[1]][tokenId][from] += amount;
+        balances[id][from] = fromBalance - amount;
+        balances[id][to] += amount;
 
-        emit TransferSingle(operator, from, to, tokenId, amount);
+        emit TransferSingle(operator, from, to, id, amount);
 
-        doSafeTransferAcceptanceCheck(
-            operator,
-            from,
-            to,
-            tokenId,
-            amount,
-            data
-        );
+        doSafeTransferAcceptanceCheck(operator, from, to, id, amount, data);
     }
 
     /**
@@ -247,45 +204,40 @@ contract ERC1155Tradable is
     function safeBatchTransferFrom(
         address from,
         address to,
-        uint256[] memory tokenIds,
+        uint256[] memory ids,
         uint256[] memory amounts,
         bytes memory data
     ) public virtual override whenNotPaused onlyApproved(from) {
         require(
-            tokenIds.length == amounts.length,
+            ids.length == amounts.length,
             "ERC1155: IDS_AMOUNTS_LENGTH_MISMATCH"
         );
         require(to != address(0), "ERC1155: transfer to the zero address");
 
         address operator = _msgSender();
 
-        _beforeTokenTransfer(operator, from, to, tokenIds, amounts, data);
+        _beforeTokenTransfer(operator, from, to, ids, amounts, data);
 
-        for (uint256 i = 0; i < tokenIds.length; ++i) {
-            uint256 tokenId = tokenIds[i];
+        for (uint256 i = 0; i < ids.length; ++i) {
+            uint256 id = ids[i];
             uint256 amount = amounts[i];
 
-            uint256[2] memory idPath = _idPath[tokenId];
-            uint256 fromBalance = balances[idPath[0]][idPath[1]][tokenId][from];
-
+            uint256 fromBalance = balances[id][from];
             require(
                 fromBalance >= amount,
                 "ERC1155: insufficient balance for transfer"
             );
-
-            balances[idPath[0]][idPath[1]][tokenId][from] =
-                fromBalance -
-                amount;
-            balances[idPath[0]][idPath[1]][tokenId][from] += amount;
+            balances[id][from] = fromBalance - amount;
+            balances[id][to] += amount;
         }
 
-        emit TransferBatch(operator, from, to, tokenIds, amounts);
+        emit TransferBatch(operator, from, to, ids, amounts);
 
         doSafeBatchTransferAcceptanceCheck(
             operator,
             from,
             to,
-            tokenIds,
+            ids,
             amounts,
             data
         );
@@ -300,94 +252,62 @@ contract ERC1155Tradable is
 
     /**
      * @dev Mints some amount of tokens to an address
-     * @param _to                 Address of the future owner of the token
-     * @param _tokenId                 Token ID to mint
-     * @param _quantity           Amount of tokens to mint
-     * @param _data               Data to pass if receiver is contract
+     * @param _to          Address of the future owner of the token
+     * @param _id          Token ID to mint
+     * @param _quantity    Amount of tokens to mint
+     * @param _data        Data to pass if receiver is contract
      */
     function mint(
         address _to,
-        uint256 _tokenId,
+        uint256 _id,
         uint256 _quantity,
         bytes memory _data
     ) public virtual onlyOwnerOrProxy {
-        (
-            uint256 _mainCollectionId,
-            uint256 _subCollectionId,
-            bytes memory _uri
-        ) = parseData2PathUri(_data);
-
-        _mint(
-            _to,
-            _mainCollectionId,
-            _subCollectionId,
-            _tokenId,
-            _quantity,
-            _uri
-        );
+        _mint(_to, _id, _quantity, _data);
     }
 
     /**
      * @dev Mint tokens for each id in _ids
      * @param _to          The address to mint tokens to
-     * @param _tokenIds         Array of ids to mint
+     * @param _ids         Array of ids to mint
      * @param _quantities  Array of amounts of tokens to mint per id
      * @param _data        Data to pass if receiver is contract
      */
     function batchMint(
         address _to,
-        uint256[] memory _tokenIds,
+        uint256[] memory _ids,
         uint256[] memory _quantities,
         bytes memory _data
     ) public virtual onlyOwnerOrProxy {
-        (
-            uint256[] memory _mainCollectionIdLs,
-            uint256[] memory _subCollectionIdLs,
-            bytes[] memory _dataLs
-        ) = parseData2DataLs(_data);
-        require(
-            _mainCollectionIdLs.length == _subCollectionIdLs.length &&
-                _subCollectionIdLs.length == _dataLs.length &&
-                _subCollectionIdLs.length == _quantities.length,
-            "Wrong array length"
-        );
-
-        _batchMint(
-            _to,
-            _mainCollectionIdLs,
-            _subCollectionIdLs,
-            _tokenIds,
-            _quantities,
-            _dataLs
-        );
+        _batchMint(_to, _ids, _quantities, _data);
     }
 
     /**
      * @dev Burns amount of a given token id
      * @param _from          The address to burn tokens from
-     * @param _tokenId          Token ID to burn
+     * @param _id          Token ID to burn
      * @param _quantity    Amount to burn
      */
     function burn(
         address _from,
-        uint256 _tokenId,
+        uint256 _id,
         uint256 _quantity
     ) public virtual onlyApproved(_from) {
-        _burn(_from, _tokenId, _quantity);
+        _burn(_from, _id, _quantity);
     }
 
     /**
      * @dev Burns tokens for each id in _ids
      * @param _from          The address to burn tokens from
-     * @param _tokenIds         Array of token ids to burn
+     * @param _ids         Array of token ids to burn
      * @param _quantities  Array of the amount to be burned
      */
     function batchBurn(
         address _from,
-        uint256[] memory _tokenIds,
+        uint256[] memory _ids,
         uint256[] memory _quantities
     ) public virtual onlyApproved(_from) {
-        _burnBatch(_from, _tokenIds, _quantities);
+        _burnBatch(_from, _ids, _quantities);
     }
 
     /**
@@ -403,12 +323,10 @@ contract ERC1155Tradable is
     // and to set _supply
     function _mint(
         address _to,
-        uint256 _mainCollectionId,
-        uint256 _subCollectionId,
         uint256 _id,
         uint256 _amount,
         bytes memory _data
-    ) internal virtual whenNotPaused {
+    ) internal virtual override whenNotPaused {
         address operator = _msgSender();
 
         _beforeTokenTransfer(
@@ -422,18 +340,12 @@ contract ERC1155Tradable is
 
         _beforeMint(_id, _amount);
 
-        address origin = _origin(_id);
-        require(
-            _origin(_mainCollectionId) == origin &&
-                _origin(_subCollectionId) == origin,
-            "Wrong path"
-        );
-
         // Add _amount
-        balances[_mainCollectionId][_subCollectionId][_id][_to] += _amount;
+        balances[_id][_to] += _amount;
         _supply[_id] += _amount;
 
         // Origin of token will be the _from parameter
+        address origin = _origin(_id);
 
         // Emit event
         emit TransferSingle(operator, origin, _to, _id, _amount);
@@ -452,62 +364,50 @@ contract ERC1155Tradable is
     // Overrides ERC1155MintBurn to change the batch birth events to creator transfers, and to set _supply
     function _batchMint(
         address _to,
-        uint256[] memory _mainCollectionIdLs,
-        uint256[] memory _subCollectionIdLs,
-        uint256[] memory _tokenIds,
+        uint256[] memory _ids,
         uint256[] memory _amounts,
-        bytes[] memory _dataLs
+        bytes memory _data
     ) internal virtual whenNotPaused {
-        _dataLs;
+        require(
+            _ids.length == _amounts.length,
+            "ERC1155Tradable#batchMint: INVALID_ARRAYS_LENGTH"
+        );
+
+        // Number of mints to execute
+        uint256 nMint = _ids.length;
 
         // Origin of tokens will be the _from parameter
-        address origin = _origin(_tokenIds[0]);
+        address origin = _origin(_ids[0]);
 
         address operator = _msgSender();
 
-        _beforeTokenTransfer(
-            operator,
-            address(0),
-            _to,
-            _tokenIds,
-            _amounts,
-            bytes("")
-        );
+        _beforeTokenTransfer(operator, address(0), _to, _ids, _amounts, _data);
 
         // Executing all minting
-        for (uint256 i = 0; i < _tokenIds.length; i++) {
-            uint256 _mainCollectionId = _mainCollectionIdLs[i];
-            uint256 _subCollectionId = _subCollectionIdLs[i];
-            uint256 _tokenId = _tokenIds[i];
+        for (uint256 i = 0; i < nMint; i++) {
+            // Update storage balance
+            uint256 id = _ids[i];
             uint256 amount = _amounts[i];
-
-            _beforeMint(_tokenId, amount);
+            _beforeMint(id, amount);
             require(
-                _origin(_tokenId) == origin &&
-                    _origin(_mainCollectionId) == origin &&
-                    _origin(_subCollectionId) == origin,
+                _origin(id) == origin,
                 "ERC1155Tradable#batchMint: MULTIPLE_ORIGINS_NOT_ALLOWED"
             );
-
-            // Update storage balance
-            balances[_mainCollectionId][_subCollectionId][_tokenId][
-                _to
-            ] += amount;
-
-            _supply[_tokenId] += amount;
+            balances[id][_to] += amount;
+            _supply[id] += amount;
         }
 
         // Emit batch mint event
-        emit TransferBatch(operator, origin, _to, _tokenIds, _amounts);
+        emit TransferBatch(operator, origin, _to, _ids, _amounts);
 
         // Calling onReceive method if recipient is contract
         doSafeBatchTransferAcceptanceCheck(
             operator,
             origin,
             _to,
-            _tokenIds,
+            _ids,
             _amounts,
-            bytes("")
+            _data
         );
     }
 
@@ -521,7 +421,7 @@ contract ERC1155Tradable is
      */
     function _burn(
         address account,
-        uint256 tokenId,
+        uint256 id,
         uint256 amount
     ) internal override whenNotPaused {
         require(account != address(0), "ERC1155#_burn: BURN_FROM_ZERO_ADDRESS");
@@ -533,27 +433,20 @@ contract ERC1155Tradable is
             operator,
             account,
             address(0),
-            asSingletonArray(tokenId),
+            asSingletonArray(id),
             asSingletonArray(amount),
             ""
         );
 
-        uint256[2] memory idPath = _idPath[tokenId];
-        uint256 accountBalance = balances[idPath[0]][idPath[1]][tokenId][
-            account
-        ];
-
+        uint256 accountBalance = balances[id][account];
         require(
             accountBalance >= amount,
             "ERC1155#_burn: AMOUNT_EXCEEDS_BALANCE"
         );
+        balances[id][account] = accountBalance - amount;
+        _supply[id] -= amount;
 
-        balances[idPath[0]][idPath[1]][tokenId][account] =
-            accountBalance -
-            amount;
-        _supply[tokenId] -= amount;
-
-        emit TransferSingle(operator, account, address(0), tokenId, amount);
+        emit TransferSingle(operator, account, address(0), id, amount);
     }
 
     /**
@@ -565,46 +458,33 @@ contract ERC1155Tradable is
      */
     function _burnBatch(
         address account,
-        uint256[] memory tokenIds,
+        uint256[] memory ids,
         uint256[] memory amounts
     ) internal override whenNotPaused {
         require(account != address(0), "ERC1155: BURN_FROM_ZERO_ADDRESS");
         require(
-            tokenIds.length == amounts.length,
+            ids.length == amounts.length,
             "ERC1155: IDS_AMOUNTS_LENGTH_MISMATCH"
         );
 
         address operator = _msgSender();
 
-        _beforeTokenTransfer(
-            operator,
-            account,
-            address(0),
-            tokenIds,
-            amounts,
-            ""
-        );
+        _beforeTokenTransfer(operator, account, address(0), ids, amounts, "");
 
-        for (uint256 i = 0; i < tokenIds.length; i++) {
-            uint256 tokenId = tokenIds[i];
+        for (uint256 i = 0; i < ids.length; i++) {
+            uint256 id = ids[i];
             uint256 amount = amounts[i];
 
-            uint256[2] memory idPath = _idPath[tokenId];
-
-            uint256 accountBalance = balances[idPath[0]][idPath[1]][tokenId][
-                account
-            ];
+            uint256 accountBalance = balances[id][account];
             require(
                 accountBalance >= amount,
                 "ERC1155#_burnBatch: AMOUNT_EXCEEDS_BALANCE"
             );
-            balances[idPath[0]][idPath[1]][tokenId][account] =
-                accountBalance -
-                amount;
-            _supply[tokenId] -= amount;
+            balances[id][account] = accountBalance - amount;
+            _supply[id] -= amount;
         }
 
-        emit TransferBatch(operator, account, address(0), tokenIds, amounts);
+        emit TransferBatch(operator, account, address(0), ids, amounts);
     }
 
     // Override this to change birth events' _from address
@@ -714,35 +594,5 @@ contract ERC1155Tradable is
      */
     function _msgSender() internal view override returns (address sender) {
         return ContextMixin.msgSender();
-    }
-
-    function parseData2PathUri(bytes memory data)
-        public
-        pure
-        returns (
-            uint256 mainCollectionId,
-            uint256 subCollectionId,
-            bytes memory uri
-        )
-    {
-        (mainCollectionId, subCollectionId, uri) = abi.decode(
-            data,
-            (uint256, uint256, bytes)
-        );
-    }
-
-    function parseData2DataLs(bytes memory data)
-        public
-        pure
-        returns (
-            uint256[] memory mainCollectionIdLs,
-            uint256[] memory subCollectionIdLs,
-            bytes[] memory dataLs
-        )
-    {
-        (mainCollectionIdLs, subCollectionIdLs, dataLs) = abi.decode(
-            data,
-            (uint256[], uint256[], bytes[])
-        );
     }
 }

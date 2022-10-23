@@ -18,30 +18,9 @@ contract AssetContractShared is AssetContract, ReentrancyGuard {
         address owner;
     }
 
-    // creator address => access index =>  address => permission's end timestamp
-    mapping(address => mapping(uint8 => mapping(address => uint256)))
-        private accessPermission;
-
-    // creator address => access index => [price,timeSpan]
-    mapping(address => mapping(uint8 => uint256[2]))
-        private accessPriceDuration;
-
     using TokenIdentifiers for uint256;
 
     event CreatorChanged(uint256 indexed _id, address indexed _creator);
-
-    event AccessPermissionBought(
-        address indexed buyer,
-        address indexed creator,
-        uint8 accessTypeIndex,
-        uint256 endTimeStamp
-    );
-    event AccessPriceDuationUpdate(
-        address indexed creator,
-        uint8 accessTypeIndex,
-        uint256 price,
-        uint256 timeSpan
-    );
 
     mapping(uint256 => address) internal _creatorOverride;
 
@@ -100,46 +79,26 @@ contract AssetContractShared is AssetContract, ReentrancyGuard {
 
     function mint(
         address _to,
-        uint256 _tokenId,
+        uint256 _id,
         uint256 _quantity,
         bytes memory _data
-    ) public override nonReentrant creatorOnly(_tokenId) {
-        super.mint(_to, _tokenId, _quantity, _data);
+    ) public override nonReentrant creatorOnly(_id) {
+        _mint(_to, _id, _quantity, _data);
     }
 
     function batchMint(
         address _to,
-        uint256[] memory _tokenIds,
+        uint256[] memory _ids,
         uint256[] memory _quantities,
         bytes memory _data
     ) public override nonReentrant {
-        for (uint256 i = 0; i < _tokenIds.length; i++) {
+        for (uint256 i = 0; i < _ids.length; i++) {
             require(
-                _isCreatorOrProxy(_tokenIds[i], _msgSender()),
+                _isCreatorOrProxy(_ids[i], _msgSender()),
                 "AssetContractShared#_batchMint: ONLY_CREATOR_ALLOWED"
             );
         }
-
-        (
-            uint256[] memory _mainCollectionIdLs,
-            uint256[] memory _subCollectionIdLs,
-            bytes[] memory _dataLs
-        ) = parseData2DataLs(_data);
-        require(
-            _mainCollectionIdLs.length == _subCollectionIdLs.length &&
-                _subCollectionIdLs.length == _dataLs.length &&
-                _subCollectionIdLs.length == _quantities.length,
-            "Wrong array length"
-        );
-
-        _batchMint(
-            _to,
-            _mainCollectionIdLs,
-            _subCollectionIdLs,
-            _tokenIds,
-            _quantities,
-            _dataLs
-        );
+        _batchMint(_to, _ids, _quantities, _data);
     }
 
     /////////////////////////////////
@@ -251,44 +210,5 @@ contract AssetContractShared is AssetContract, ReentrancyGuard {
             return true;
         }
         return super._isProxyForUser(_user, _address);
-    }
-
-    function setAccessPriceDuration(
-        address creator_,
-        uint8 accessIndex,
-        uint256 price,
-        uint256 timeSpan
-    ) public {
-        require(
-            creator_ == msgSender() || _isProxyForUser(creator_, msgSender()),
-            "Only the creator or proxy can set access price "
-        );
-
-        accessPriceDuration[creator_][accessIndex] = [price, timeSpan];
-
-        emit AccessPriceDuationUpdate(creator_, accessIndex, price, timeSpan);
-    }
-
-    function payForAccess(address creator_, uint8 accessIndex) public payable {
-        uint256 price = accessPriceDuration[creator_][accessIndex][0];
-        require(msg.value >= price, "Insufficient fund");
-
-        uint256 permissionEndTimeStamp = accessPriceDuration[creator_][
-            accessIndex
-        ][1] + block.timestamp;
-
-        accessPermission[creator_][accessIndex][
-            msg.sender
-        ] = permissionEndTimeStamp;
-
-        bool sent = payable(msg.sender).send(price - msg.value);
-        require(sent, "Failed to send remain Ether back");
-
-        emit AccessPermissionBought(
-            msg.sender,
-            creator_,
-            accessIndex,
-            permissionEndTimeStamp
-        );
     }
 }

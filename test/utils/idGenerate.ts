@@ -1,30 +1,16 @@
 import type { Wallet, BigNumber } from "ethers";
-import { toBN } from "./encoding";
+import { hex2bin, toBN, toHex } from "./encoding";
+import { BigNumber as BigNumberJs } from "bignumber.js";
 
-function convertNumber(
-  n: number,
-  fromBase: number,
-  toBase: number,
-  padNum: number = 0
-) {
-  if (fromBase === void 0) {
-    fromBase = 10;
-  }
-  if (toBase === void 0) {
-    toBase = 10;
-  }
-  return parseInt(n.toString(), fromBase)
-    .toString(toBase)
-    .padStart(padNum, "0");
-}
+
+
 
 export const mainCollectionIdGenerator = (creator: Wallet, index: number) => {
-  const res = toBN(
-    creator.address.toString() +
-      Array.from({ length: 24 }, (_, i) => 0).join("")
-  );
-
-  return res.add(index);
+    let temp =
+    BigInt(creator.address).toString(2).padStart(160,'0')+
+    BigInt(index.toString()).toString(2).padStart(96,'0')
+    
+    return BigInt('0b' + temp).toString(10)
 };
 
 export const subCollectionIdGenerator = (
@@ -32,13 +18,15 @@ export const subCollectionIdGenerator = (
   workTypeIndex: 0 | 1,
   index: number
 ) => {
-  const res = toBN(
-    creator.address.toString() +
-      workTypeIndex.toString() +
-      Array.from({ length: 23 }, (_, i) => 0).join("")
-  );
+  let temp =
+  BigInt(creator.address).toString(2).padStart(160,'0')+
+  BigInt(workTypeIndex.toString(),).toString(2).padStart(1,'0') + 
+  BigInt(index.toString()).toString(2).padStart(95,'0')
 
-  return res.add(index);
+  
+  
+  return BigInt('0b' + temp).toString(10)
+  
 };
 
 export const tokenIdGenerator = (
@@ -52,25 +40,31 @@ export const tokenIdGenerator = (
   supply: number
 ) => {
   let temp =
-    convertNumber(parseInt(creator.address, 16), 10, 2, 160).toString() +
-    convertNumber(mainCollectionIndex, 10, 2, 10) +
-    convertNumber(subCollectionIndex, 10, 2, 10);
+  BigInt(creator.address).toString(2).padStart(160,'0')+
+  BigInt(mainCollectionIndex).toString(2).padStart(10,'0')+
+  BigInt(subCollectionIndex).toString(2).padStart(10,'0')
+    
 
+  
   if (isSeries) {
     if (episodeIndex && pageIndex) {
       temp +=
-        convertNumber(episodeIndex, 10, 2, 18) +
-        convertNumber(pageIndex, 10, 2, 18);
+      BigInt(episodeIndex).toString(2).padStart(18,'0')+
+      BigInt(pageIndex).toString(2).padStart(18,'0')
+
     } else {
       throw "if isSeries, should provide episodeIndex and pageIndex";
     }
   } else {
     if (categoryIndex) {
-      temp += convertNumber(categoryIndex, 10, 2, 36);
+        temp +=
+        BigInt(categoryIndex).toString(2).padStart(36,'0')
     } else {
       throw "if not isSeries, should provide categoryIndex";
     }
   }
 
-  temp += convertNumber(supply, 10, 2, 40);
+  temp +=   BigInt(supply).toString(2).padStart(40,'0')
+
+  return BigInt('0b' + temp).toString(10)
 };
