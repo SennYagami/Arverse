@@ -10,7 +10,7 @@ import "./TokenIdentifiers.sol";
  * @title AssetContractShared
  * OpenSea shared asset contract - A contract for easily creating custom assets on OpenSea
  */
-contract AssetContractShared is AssetContract, ReentrancyGuard {
+contract ArverseCollection is AssetContract, ReentrancyGuard {
     mapping(address => bool) public sharedProxyAddresses;
 
     struct Ownership {
