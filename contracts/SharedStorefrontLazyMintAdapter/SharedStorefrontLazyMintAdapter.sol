@@ -56,11 +56,11 @@ contract SharedStorefrontLazyMintAdapter {
 
     constructor(
         address conduitAddress,
-        address tokenAddress,
+        address ssfTokenAddress,
         address seaportAddress
     ) {
         CONDUIT = conduitAddress;
-        ssfToken = IERC1155(tokenAddress);
+        ssfToken = IERC1155(ssfTokenAddress);
         SEAPORT = seaportAddress;
     }
 

@@ -1,0 +1,29 @@
+{
+    "description": "",
+    "tokenId": "0x...",
+    "creator": "0x...",
+    "isContentPublic": false,
+    "image": "",
+    "image_data": "",
+    "image_data_hash": "",
+    "external_url": "",
+    "attributes": [
+        {
+            "trait_type": "Base",
+            "value": "Starfish"
+        },
+        {
+            "trait_type": "Eyes",
+            "value": "Big"
+        },
+        {
+            "display_type": "date",
+            "trait_type": "birthday",
+            "value": 1546360800
+        }
+    ],
+    "isMainCollection": "false",
+    "isSubCollection": "true",
+    "mainCollectionTokenId": "0x...",
+    "subCollectionTokenId": "0x..."
+}
