@@ -16,7 +16,7 @@ import {
   CriteriaResolver,
 } from "../../types/type";
 import { Wallet, Contract, BigNumber } from "ethers";
-import { calculateOrderHash, getItemETH, getItem721 } from "../utils/utils";
+import { calculateOrderHash, getItemETH, getItem1155 } from "../utils/utils";
 import { toBN, toHex, randomHex, toKey } from "../utils/encodings";
 import { keccak256, parseEther, recoverAddress } from "ethers/lib/utils";
 
@@ -153,7 +153,7 @@ async function main() {
   const identifierOrCriteria = BigNumber.from(rawIdentifierOrCriteria);
 
   const [offerer, buyer] = await hre.ethers.getSigners();
-  const offer = [getItem721(SsfLazyMintAdapterAddress[network], identifierOrCriteria)];
+  const offer = [getItem1155(SsfLazyMintAdapterAddress[network], identifierOrCriteria,1,1)];
 
   const consideration = [getItemETH(parseEther("0.01"), parseEther("0.01"), offerer.address)];
 

@@ -25,9 +25,9 @@ const config: HardhatUserConfig = {
       accounts: [
         process.env.DEPLOYER as string,
         process.env.MULTISIGWALLETOWNER1 as string,
-        process.env.MULTISIGWALLETOWNER2 as string,
-        process.env.MULTISIGWALLETOWNER3 as string,
-        process.env.ACCEPTER as string,
+        // process.env.MULTISIGWALLETOWNER2 as string,
+        // process.env.MULTISIGWALLETOWNER3 as string,
+        // process.env.ACCEPTER as string,
       ],
       gas: 10000000,
       //   allowUnlimitedContractSize: true,

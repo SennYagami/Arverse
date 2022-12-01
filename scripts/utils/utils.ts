@@ -18,13 +18,24 @@ export const getItemETH = (
     recipient
   );
 
-export const getItem721 = (
-  token: string,
-  identifierOrCriteria: BigNumberish,
-  startAmount: BigNumberish = 1,
-  endAmount: BigNumberish = 1,
-  recipient?: string
-) => getOfferOrConsiderationItem(2, token, identifierOrCriteria, startAmount, endAmount, recipient);
+
+export const getItem1155 = (
+    token : string,
+    identifierOrCriteria: BigNumberish,
+    startAmount: BigNumberish,
+    endAmount: BigNumberish,
+    recipient?: string
+  ) =>
+    getOfferOrConsiderationItem(
+      3,
+      token,
+      identifierOrCriteria,
+      startAmount,
+      endAmount,
+      recipient
+    );
+
+
 
 export const getOfferOrConsiderationItem = <RecipientType extends string | undefined = undefined>(
   itemType: number = 0,
